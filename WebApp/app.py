@@ -12,7 +12,7 @@ import pandas as pd
 # musixmatch api base url
 base_url = "https://api.musixmatch.com/ws/1.1/"
 
-# your api key
+# api key
 api_key = "&apikey=5e6203280f5c220a14303055a070091d"
 
 track_charts = "chart.tracks.get"
@@ -23,6 +23,7 @@ format_url = '?chart_name=top&format=json&callback=callback&country='
 #Countries
 getCountry = {'au' : 'Australia', 'ca'  : 'Canada', 'uk': 'United Kingdom'}
 
+# Getting classifiers ready
 vect = pickle.load(open('countv.p','rb'))
 clf = pickle.load(open('clf_countv.p','rb'))
 le = pickle.load(open('label_encoder.p','rb'))
@@ -38,9 +39,11 @@ class ReusableForm(Form):
     email = TextField('Email:', validators=[validators.required(), validators.Length(min=6, max=35)])
     password = TextField('Password:', validators=[validators.required(), validators.Length(min=3, max=35)])
 
+# Utility function to build html image tag
 def path_to_image_html(path):
     return '<img src="'+ path + '" width="60" >'
 
+# Utility function to calculate filename of the emoji based on predcited probability
 def getImageName(mood,prob):
     fileName = 'static\\'
     if prob in range(0,20):
@@ -55,6 +58,7 @@ def getImageName(mood,prob):
         fileName += mood + "\\5.png"
     return fileName
  
+# Predicts probability and labels the mood of the text passed.
 def classify(text):
     x_vect = vect.transform([text])
     proba = np.max(clf.predict_proba(x_vect))
@@ -67,7 +71,7 @@ def make_prediction():
     countryCode = request.form.get('country')
     form = ReusableForm(request.form)
     api_call = base_url + track_charts + format_url + countryCode + api_key
-    print(api_call)
+    #requesting trackids of the country passed
     req = requests.get(api_call)
     result = req.json()
     data = json.dumps(result, sort_keys=True, indent=2)
@@ -80,6 +84,7 @@ def make_prediction():
     probability = []
     for id in track_ids:
         api_cal = base_url + lyrics_url + str(id) + api_key
+        #requesting lyrics of the trackid passed.
         r = requests.get(api_cal)
         dat = r.json()
         text = dat['message']['body']['lyrics']['lyrics_body'].split('...')[0]
@@ -90,7 +95,7 @@ def make_prediction():
         probability.append(proba)
         filename = getImageName(currentMood,round(prediction[1]))
         emoji.append(filename[0])
-    
+    #dataframe for results table
     df = pd.DataFrame({
         'TrackId':pd.Series(track_ids),
         'Track Name':pd.Series(track_name),
@@ -108,6 +113,7 @@ def predictLyrics():
     prediction = classify(lyrics)
     mood = prediction[0][0]
     prob = prediction[1]
+    # building message for results
     message = "The song is " + str(prob) + "% " + mood
     return render_template('lyrics.html', form=form, mood = message)
 
@@ -134,5 +140,4 @@ def result():
 	
  
 if __name__ == "__main__":
-    # Getting the classifier ready
     app.run()
